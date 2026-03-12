@@ -69,7 +69,7 @@ Once that's done, every device on your Tailscale network can reach the Xbox dire
 
 Getting xemu's pcap networking to work inside Docker required solving three bugs that cause silent failures:
 
-1. **Packet receive never works** — xemu can send packets but the receive socket never fires. Fixed by injecting a small shim ([`pcap_immediate.c`](services/xemu/data/emulator/pcap_immediate.c)) that enables immediate mode on the capture device.
+1. **Packet receive never works** — xemu can send packets but the receive socket never fires. Fixed by a small shim ([`pcap_immediate.c`](services/xemu/data/emulator/pcap_immediate.c)) that enables immediate mode on the capture device. The shim is compiled into the image automatically during `docker compose build` and injected via `/etc/ld.so.preload` at runtime.
 
 2. **TCP always times out even though ping works** — the Linux kernel leaves TCP checksums partially filled, expecting the NIC hardware to complete them. On a software bridge, nothing ever does, so the Xbox drops every TCP packet. Fixed by disabling TX checksum offloading on the container's network interface at startup.
 

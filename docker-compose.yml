@@ -92,7 +92,7 @@ services:
       - QMP_PORT=4444
       - WEB_PORT=8080
     volumes:
-      - ../StatsBorg:/app         # Bind mount — code changes don't require rebuild
+      - ./services/statsborg/history:/app/history  # Persist game history across rebuilds
     ports:
       - 8080:8080                 # pgcr_server web UI
     networks:
@@ -146,6 +146,7 @@ services:
     sysctls:
       - net.ipv4.ip_forward=1
     environment:
+      - TS_AUTHKEY=${TS_AUTHKEY}   # Set in .env — generate a reusable key at tailscale.com/admin/settings/keys
       - TS_EXTRA_ARGS=--advertise-routes=172.20.0.0/24 --accept-dns=false
       - TS_STATE_DIR=/var/lib/tailscale
     volumes:
