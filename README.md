@@ -24,7 +24,7 @@ Run xemu (original Xbox emulator) in Docker with a real IP address on your netwo
 **You'll need:** A Linux host, Docker with Compose V2, and a free [Tailscale](https://tailscale.com) account.
 
 ```bash
-git clone https://github.com/Roasted-Codes/cairo-station.git
+git clone --recurse-submodules https://github.com/Roasted-Codes/cairo-station.git
 cd cairo-station
 ```
 
@@ -37,16 +37,18 @@ Put your Xbox files in `services/xemu/data/emulator/`:
 | `iguana-eeprom.bin` | EEPROM |
 | `iguana-dev.qcow2` | Hard drive image (~3.6 GB — not in git, get this separately) |
 
+Create a `.env` file with your [Tailscale auth key](https://login.tailscale.com/admin/settings/keys) (reusable, ephemeral):
+
+```bash
+echo "TS_AUTHKEY=tskey-auth-..." > .env
+```
+
 ```bash
 docker compose build
 docker compose up -d
 ```
 
-**Connect Tailscale:** Watch logs until an auth URL appears, click it to log in, then go to the [Tailscale admin console](https://login.tailscale.com/admin/machines) and approve the `172.20.0.0/24` subnet route.
-
-```bash
-docker compose logs tailscale
-```
+Tailscale connects automatically. Go to the [Tailscale admin console](https://login.tailscale.com/admin/machines) and approve the `172.20.0.0/24` subnet route — or add `autoApprovers` to your ACLs to skip this step entirely.
 
 Once that's done, every device on your Tailscale network can reach the Xbox directly.
 
@@ -62,6 +64,26 @@ Once that's done, every device on your Tailscale network can reach the Xbox dire
 | StatsBorg stats viewer | `http://172.20.0.45:8080` |
 | XLink Kai | `http://172.20.0.25:34522` |
 | Grafana | `http://172.20.0.41:3000` — login: admin / admin |
+
+---
+
+## Updating
+
+**Pull upstream changes and rebuild** (safe — your stats history, BIOS files, and game data are never touched):
+
+```bash
+git pull --recurse-submodules          # update cairo-station + StatsBorg
+docker compose build statsborg xemu    # rebuild images that have code baked in
+docker compose up -d                   # restart with new images
+```
+
+To update only StatsBorg:
+
+```bash
+git submodule update --remote services/statsborg/app
+git add services/statsborg/app && git commit -m "Bump StatsBorg"
+docker compose build statsborg && docker compose up -d statsborg
+```
 
 ---
 
