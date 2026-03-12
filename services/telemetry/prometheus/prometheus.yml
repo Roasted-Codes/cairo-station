@@ -1,0 +1,24 @@
+# =============================================================================
+# Prometheus scrape configuration for network telemetry
+# =============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'network_exporter'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    static_configs:
+      - targets: ['172.20.0.42:9427']
+        labels:
+          instance: 'xemu-lan'
+
+  - job_name: 'xlink_monitor'
+    scrape_interval: 5s
+    scrape_timeout: 3s
+    static_configs:
+      - targets: ['172.20.0.25:9428']   # shares xlinkkai's network namespace
+        labels:
+          instance: 'xemu-lan'

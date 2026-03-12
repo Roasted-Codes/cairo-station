@@ -5,6 +5,10 @@
 # This configuration provides:
 #   - xemu emulator with custom config management and automation
 #   - XLink Kai for LAN gaming over the internet
+#   - Tailscale subnet router for remote access
+#   - dnsmasq for DHCP/DNS on the bridge network
+#   - nettools sidecar (iperf3, mtr, tcpdump) for diagnostics
+#   - Network telemetry: Prometheus + Grafana + network_exporter + xlink-monitor
 #
 # Features:
 #   - CPU-only rendering (no GPU required)
@@ -29,7 +33,9 @@ networks:
           gateway: 172.20.0.1
 
 volumes:
-  tailscale-state:  # Persists Tailscale auth across container restarts
+  tailscale-state:    # Persists Tailscale auth across container restarts
+  prometheus-data:    # Persists Prometheus metrics (90-day retention)
+  grafana-data:       # Persists Grafana dashboards and settings
 
 services:
   xemu:
@@ -86,6 +92,7 @@ services:
       - 34522:34522      # XLink Kai web interface
       - 30000:30000/udp  # P2P connections to orbital
       - 34523:34523/udp  # XLink Kai game tunneling
+      - 9428:9428        # xlink-monitor Prometheus metrics
     networks:
       xemu_lan:
         ipv4_address: 172.20.0.25
@@ -173,3 +180,74 @@ services:
   #       ipv4_address: 172.20.0.30
   #   restart: unless-stopped
 
+  # ── Diagnostics ──────────────────────────────────────────────────────────────
+
+  nettools:
+    build: ./services/nettools
+    container_name: xemu-nettools
+    ports:
+      - 5201:5201  # iperf3 server
+    networks:
+      xemu_lan:
+        ipv4_address: 172.20.0.35
+    restart: unless-stopped
+
+  # ── Telemetry ─────────────────────────────────────────────────────────────────
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: xemu-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=90d'
+    volumes:
+      - ./services/telemetry/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - 9090:9090
+    networks:
+      xemu_lan:
+        ipv4_address: 172.20.0.40
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: xemu-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./services/telemetry/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - 3002:3000  # Host 3002 → container 3000 (3000/3001 already used by xemu)
+    networks:
+      xemu_lan:
+        ipv4_address: 172.20.0.41
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  network-exporter:
+    image: syepes/network_exporter:latest
+    container_name: xemu-network-exporter
+    cap_add:
+      - NET_RAW   # Required for ICMP/MTR probes
+    volumes:
+      - ./services/telemetry/network-exporter/network_exporter.yml:/app/network_exporter.yml:ro
+    networks:
+      xemu_lan:
+        ipv4_address: 172.20.0.42
+    restart: unless-stopped
+
+  xlink-monitor:
+    build: ./services/telemetry/xlink-monitor
+    container_name: xemu-xlink-monitor
+    network_mode: "service:xlinkkai"  # Share xlinkkai's network namespace to see its traffic
+    cap_add:
+      - NET_RAW    # Required for tcpdump packet capture and ICMP ping
+      - NET_ADMIN  # Required for promiscuous mode
+    volumes:
+      - ./services/telemetry/xlink-monitor/players.json:/app/players.json:ro
+    depends_on:
+      - xlinkkai
+    restart: unless-stopped

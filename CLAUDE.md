@@ -20,6 +20,8 @@
 - **Tailscale** subnet router for direct remote access to the entire 172.20.0.0/24 network
 - **XLink Kai** for system link gaming over the internet
 - **dnsmasq** for DHCP and DNS services on the bridge network
+- **Network telemetry** (Prometheus + Grafana + network_exporter) for latency, jitter, and packet loss monitoring
+- **nettools** sidecar with iperf3, mtr, and traceroute for manual diagnostics
 - **Emulated Xbox IPs:** `172.20.0.50` (title interface) and `172.20.0.51` (debug interface)
 
 ### Why Overlay Pattern?
@@ -132,8 +134,24 @@ bridged-xemu/
     ├── xlinkkai/                       # XLink Kai service
     │   └── user.sh                     # Auto-join arena hook (injected into ich777 startup)
     │
-    └── tailscale/                      # Tailscale subnet router (runtime state only)
-        └── (no files - uses named Docker volume `tailscale-state`)
+    ├── tailscale/                      # Tailscale subnet router (runtime state only)
+    │   └── (no files - uses named Docker volume `tailscale-state`)
+    │
+    ├── nettools/                       # Network diagnostic tools sidecar
+    │   └── Dockerfile                  # Alpine image: iperf3, mtr, traceroute, tcpdump, ncat
+    │
+    └── telemetry/                      # Prometheus + Grafana monitoring stack
+        ├── prometheus/
+        │   └── prometheus.yml          # Scrape config (targets network-exporter at :9427)
+        ├── grafana/
+        │   └── provisioning/
+        │       ├── datasources/
+        │       │   └── prometheus.yml  # Auto-configured Prometheus datasource
+        │       └── dashboards/
+        │           ├── dashboards.yml  # Dashboard provider config
+        │           └── network-telemetry.json  # Pre-built network_exporter dashboard
+        └── network-exporter/
+            └── network_exporter.yml    # Probe targets (XLink Kai, internet, internal services)
 ```
 
 ### Files NOT in Git
@@ -200,6 +218,9 @@ docker compose up -d
 | XBDM (debug) | `172.20.0.51:731` | Direct access for Assembly, etc. |
 | Xbox FTP | `172.20.0.50:21` | Direct FTP (passive mode works!) |
 | XLink Kai | `http://172.20.0.25:34522` | Web interface |
+| Grafana | `http://172.20.0.41:3000` | Network telemetry dashboards (admin/admin) |
+| Prometheus | `http://172.20.0.40:9090` | Raw metrics and PromQL queries |
+| iperf3 server | `172.20.0.35:5201` | Test throughput from any Tailscale client |
 | l2tunnel Hub | `172.20.0.30:1337` | LAN gaming over Tailscale (TCP) |
 
 **Tailscale Setup:**
@@ -261,6 +282,13 @@ docker exec -it xemu-halo2-server bash
 | Stop all services | `docker compose down` |
 | Test FTP from server | `docker exec -it xemu-halo2-server lftp 172.20.0.50` |
 | Capture Xbox traffic | `docker exec xemu-halo2-server tcpdump -i eth0 host 172.20.0.50` |
+| MTR to XLink Kai | `docker exec -it xemu-nettools mtr -rwbz -c 100 contabo.teamxlink.co.uk` |
+| MTR to Cloudflare | `docker exec -it xemu-nettools mtr -rwbz -c 50 1.1.1.1` |
+| iperf3 UDP jitter test | `docker exec -it xemu-nettools iperf3 -c iperf.he.net -u -b 1M` |
+| iperf3 TCP throughput | `docker exec -it xemu-nettools iperf3 -c iperf.he.net` |
+| Open Grafana dashboard | `http://172.20.0.41:3000` (via Tailscale, admin/admin) |
+| Check Prometheus targets | `curl -s http://172.20.0.40:9090/api/v1/targets` |
+| View network exporter metrics | `curl -s http://172.20.0.42:9427/metrics \| grep ping_rtt` |
 
 ---
 
@@ -956,6 +984,10 @@ ldconfig
 │  │  .10 xemu-tailscale2 (subnet router: advertises 172.20.0.0/24)      │ │
 │  │  .25 xlinkkai (XLink Kai web UI: 34522)                             │ │
 │  │  .30 l2tunnel (LAN tunnel hub: 1337)                                │ │
+│  │  .35 xemu-nettools (iperf3 server: 5201, mtr, traceroute)          │ │
+│  │  .40 xemu-prometheus (metrics DB: 9090)                             │ │
+│  │  .41 xemu-grafana (dashboards: 3000)                               │ │
+│  │  .42 xemu-network-exporter (ICMP/MTR/TCP probes: 9427)             │ │
 │  │  .49 xemu-halo2-server (Selkies web UI: 3000/3001, QMP: 4444)       │ │
 │  │      │                                                               │ │
 │  │      └─→ pcap on eth0 injects packets for:                          │ │
@@ -989,6 +1021,10 @@ ldconfig
 | 172.20.0.10 | xemu-tailscale2 | Subnet router (exposes network to Tailscale clients) |
 | 172.20.0.25 | xlinkkai | XLink Kai for system link gaming |
 | 172.20.0.30 | l2tunnel | Layer 2 tunnel hub for LAN gaming (port 1337) |
+| 172.20.0.35 | xemu-nettools | iperf3 server + mtr/traceroute diagnostics (port 5201) |
+| 172.20.0.40 | xemu-prometheus | Time-series metrics database (port 9090) |
+| 172.20.0.41 | xemu-grafana | Network telemetry dashboards (port 3000, host 3002) |
+| 172.20.0.42 | xemu-network-exporter | ICMP/MTR/TCP/HTTP probe exporter (port 9427) |
 | 172.20.0.49 | xemu container | Selkies web UI + QMP (ports 3000/3001/4444) |
 | 172.20.0.50 | Xbox (title) | Gaming, FTP (pcap-injected) |
 | 172.20.0.51 | Xbox (debug) | XBDM, ping (pcap-injected) |

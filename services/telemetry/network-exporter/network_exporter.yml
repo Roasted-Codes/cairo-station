@@ -1,0 +1,147 @@
+# =============================================================================
+# Network Exporter Configuration for XLink Kai telemetry
+# =============================================================================
+# Probes XLink Kai infrastructure, internet baselines, and internal bridge
+# services to measure per-hop latency, jitter, packet loss, and TCP connectivity.
+#
+# XLink Kai orbital servers are dynamically assigned. After kaiengine connects:
+#   docker compose logs xlinkkai | grep -i orbital
+# Add discovered orbital IPs/hostnames to the targets section below.
+# =============================================================================
+
+conf:
+  refresh: 15m
+  nameserver: 172.20.0.2:53
+  nameserver_timeout: 250ms
+
+icmp:
+  interval: 10s
+  timeout: 1s
+  count: 10
+  payload_size: 56
+
+mtr:
+  interval: 60s
+  timeout: 500ms
+  max-hops: 30
+  count: 10
+  payload_size: 56
+  protocol: icmp
+
+tcp:
+  interval: 15s
+  timeout: 2s
+
+http_get:
+  interval: 60s
+  timeout: 5s
+
+targets:
+  # --- XLink Kai Infrastructure ---
+  - name: xlinkkai-web
+    host: www.teamxlink.co.uk
+    type: ICMP+MTR
+    labels:
+      service: xlinkkai
+      category: infrastructure
+
+  - name: xlinkkai-web-http
+    host: https://www.teamxlink.co.uk
+    type: HTTPGet
+    labels:
+      service: xlinkkai
+      category: infrastructure
+
+  - name: xlinkkai-web-tcp
+    host: www.teamxlink.co.uk:443
+    type: TCP
+    labels:
+      service: xlinkkai
+      category: infrastructure
+
+  # --- XLink Kai Peers ---
+  - name: home-client
+    host: 73.18.119.133
+    type: ICMP+MTR
+    labels:
+      service: xlinkkai
+      category: peer
+
+  # --- Internet Baselines ---
+  - name: cloudflare-dns
+    host: 1.1.1.1
+    type: ICMP+MTR
+    labels:
+      service: dns
+      category: internet
+
+  - name: google-dns
+    host: 8.8.8.8
+    type: ICMP+MTR
+    labels:
+      service: dns
+      category: internet
+
+  # --- Internal Bridge Health ---
+  - name: docker-gateway
+    host: 172.20.0.1
+    type: ICMP
+    labels:
+      service: gateway
+      category: internal
+
+  - name: xlinkkai-container
+    host: 172.20.0.25
+    type: ICMP
+    labels:
+      service: xlinkkai
+      category: internal
+
+  - name: xlinkkai-webui-tcp
+    host: 172.20.0.25:34522
+    type: TCP
+    labels:
+      service: xlinkkai
+      category: internal
+
+  - name: xemu-container
+    host: 172.20.0.49
+    type: ICMP
+    labels:
+      service: xemu
+      category: internal
+
+  - name: xemu-selkies-tcp
+    host: 172.20.0.49:3001
+    type: TCP
+    labels:
+      service: xemu
+      category: internal
+
+  - name: xemu-qmp-tcp
+    host: 172.20.0.49:4444
+    type: TCP
+    labels:
+      service: xemu
+      category: internal
+
+  - name: xbox-debug
+    host: 172.20.0.51
+    type: ICMP
+    labels:
+      service: xbox
+      category: internal
+
+  - name: dnsmasq
+    host: 172.20.0.2
+    type: ICMP
+    labels:
+      service: dns
+      category: internal
+
+  - name: tailscale-router
+    host: 172.20.0.10
+    type: ICMP
+    labels:
+      service: tailscale
+      category: internal

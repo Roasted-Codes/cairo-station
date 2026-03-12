@@ -23,6 +23,9 @@ port3 = '000000004d6963726f736f6674205800'
 port4_driver = 'usb-xbox-gamepad'
 port4 = '000000004d6963726f736f6674205800'
 
+[display]
+renderer = 'NULL'
+
 [display.window]
 startup_size = '640x480'
 
