@@ -41,7 +41,7 @@ services:
   xemu:
     build: ./services/xemu
     image: xemu-bridged:latest
-    container_name: xemu-halo2-server
+    container_name: xemu
     privileged: true  # Required for packet capture (pcap) in bridged mode
     security_opt:
       - seccomp:unconfined
@@ -77,9 +77,31 @@ services:
       - dhcp  # Ensure DHCP/DNS is running before xemu
     restart: unless-stopped
 
+  statsborg:
+    build: ./services/statsborg
+    image: statsborg:latest
+    container_name: StatsBorg
+    environment:
+      - WATCH_MODE=qmp            # qmp (default) or xbdm
+      - XBDM_HOST=172.20.0.51     # Xbox debug interface
+      - XBDM_PORT=731
+      - QMP_HOST=172.20.0.49      # xemu QMP (used if WATCH_MODE=qmp)
+      - QMP_PORT=4444
+      - WEB_PORT=8080
+    volumes:
+      - ../StatsBorg:/app         # Bind mount — code changes don't require rebuild
+    ports:
+      - 8080:8080                 # pgcr_server web UI
+    networks:
+      xemu_lan:
+        ipv4_address: 172.20.0.45
+    depends_on:
+      - xemu
+    restart: unless-stopped
+
   xlinkkai:
     image: ich777/xlinkkaievolution
-    container_name: xlinkkai
+    container_name: xlink
     environment:
       - INTERFACE_NAME=eth0  # Use container's bridge interface
       - UMASK=000
@@ -108,8 +130,8 @@ services:
 
   tailscale:
     image: tailscale/tailscale:latest
-    container_name: xemu-tailscale2
-    hostname: xemu-halocaster
+    container_name: tailscale
+    hostname: tailscale
     entrypoint: /bin/sh
     command: >
       -c "apk add --no-cache ethtool > /dev/null 2>&1;
@@ -132,9 +154,9 @@ services:
         ipv4_address: 172.20.0.10
     restart: unless-stopped
 
-  # xbdm-relay:  # Disabled in favor of Tailscale direct access (uncomment if Tailscale not used)
+  # xbdm:  # Disabled in favor of Tailscale direct access (uncomment if Tailscale not used)
   #   image: alpine/socat
-  #   container_name: xbdm-relay
+  #   container_name: xbdm
   #   entrypoint: /bin/sh
   #   command: >
   #     -c "apk add --no-cache ethtool > /dev/null 2>&1;
@@ -153,7 +175,7 @@ services:
 
   dhcp:
     image: drpsychick/dnsmasq
-    container_name: xemu-dhcp
+    container_name: dnsmasq
     cap_add:
       - NET_ADMIN    # Required for DHCP server
     networks:
@@ -184,7 +206,7 @@ services:
 
   nettools:
     build: ./services/nettools
-    container_name: xemu-nettools
+    container_name: nettools
     ports:
       - 5201:5201  # iperf3 server
     networks:
@@ -196,7 +218,7 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
-    container_name: xemu-prometheus
+    container_name: prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.retention.time=90d'
@@ -212,7 +234,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    container_name: xemu-grafana
+    container_name: grafana
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes:
@@ -229,11 +251,14 @@ services:
 
   network-exporter:
     image: syepes/network_exporter:latest
-    container_name: xemu-network-exporter
+    container_name: network-exporter
+    security_opt:
+      - seccomp:unconfined  # Binary has file caps (cap_net_raw+eip); Docker seccomp blocks setcap'd binaries
     cap_add:
       - NET_RAW   # Required for ICMP/MTR probes
+      - NET_ADMIN # Required for MTR probes
     volumes:
-      - ./services/telemetry/network-exporter/network_exporter.yml:/app/network_exporter.yml:ro
+      - ./services/telemetry/network-exporter/network_exporter.yml:/app/cfg/network_exporter.yml:ro
     networks:
       xemu_lan:
         ipv4_address: 172.20.0.42
@@ -241,7 +266,7 @@ services:
 
   xlink-monitor:
     build: ./services/telemetry/xlink-monitor
-    container_name: xemu-xlink-monitor
+    container_name: Xlink-Monitor
     network_mode: "service:xlinkkai"  # Share xlinkkai's network namespace to see its traffic
     cap_add:
       - NET_RAW    # Required for tcpdump packet capture and ICMP ping

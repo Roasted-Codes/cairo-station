@@ -197,15 +197,16 @@ docker compose up -d
 ```
 
 **Services started:**
-- `xemu-halo2-server` (172.20.0.49) — xemu emulator with Selkies web UI
-- `xemu-tailscale2` (172.20.0.10) — Tailscale subnet router (advertises 172.20.0.0/24)
-- `xlinkkai` (172.20.0.25) — XLink Kai for online multiplayer
-- `xemu-dhcp` (172.20.0.2) — dnsmasq DHCP/DNS server
-- `xemu-nettools` (172.20.0.35) — diagnostic tools (iperf3, mtr, tcpdump)
-- `xemu-prometheus` (172.20.0.40) — Prometheus metrics DB
-- `xemu-grafana` (172.20.0.41) — Grafana dashboards (admin/admin)
-- `xemu-network-exporter` (172.20.0.42) — ICMP/MTR/TCP network probe exporter
-- `xemu-xlink-monitor` — XLink Kai traffic monitor (shares xlinkkai network namespace)
+- `xemu` (172.20.0.49) — xemu emulator with Selkies web UI
+- `tailscale` (172.20.0.10) — Tailscale subnet router (advertises 172.20.0.0/24)
+- `xlink` (172.20.0.25) — XLink Kai for online multiplayer
+- `dnsmasq` (172.20.0.2) — dnsmasq DHCP/DNS server
+- `nettools` (172.20.0.35) — diagnostic tools (iperf3, mtr, tcpdump)
+- `prometheus` (172.20.0.40) — Prometheus metrics DB
+- `grafana` (172.20.0.41) — Grafana dashboards (admin/admin)
+- `network-exporter` (172.20.0.42) — ICMP/MTR/TCP network probe exporter
+- `StatsBorg` (172.20.0.45) — StatsBorg XBDM stats watcher + pgcr_server web UI (:8080)
+- `Xlink-Monitor` — XLink Kai traffic monitor (shares xlinkkai network namespace)
 - `l2tunnel` — Layer 2 tunnel hub (**disabled by default**, uncomment in docker-compose.yml)
 
 **Emulated Xbox IPs:**
@@ -225,11 +226,12 @@ docker compose up -d
 | XLink Kai | `http://172.20.0.25:34522` | Web interface |
 | Grafana | `http://172.20.0.41:3000` | Network telemetry dashboards (admin/admin) |
 | Prometheus | `http://172.20.0.40:9090` | Raw metrics and PromQL queries |
+| StatsBorg web UI | `http://172.20.0.45:8080` | Game history viewer (served by pgcr_server) |
 | iperf3 server | `172.20.0.35:5201` | Test throughput from any Tailscale client |
 | l2tunnel Hub | `172.20.0.30:1337` | LAN gaming over Tailscale (TCP) |
 
 **Tailscale Setup:**
-1. First run: `docker logs xemu-tailscale2` to get auth URL
+1. First run: `docker logs tailscale` to get auth URL
 2. Visit URL and authenticate with your Tailscale account
 3. Approve the 172.20.0.0/24 subnet route in Tailscale admin console
 4. Install Tailscale client on your PC/Mac
@@ -257,14 +259,14 @@ docker compose up -d
 
 ```bash
 docker compose logs -f xemu          # xemu logs
-docker logs xemu-tailscale2          # Tailscale auth status
-docker logs xemu-halo2-server        # Full container logs
+docker logs tailscale          # Tailscale auth status
+docker logs xemu        # Full container logs
 ```
 
 ### Exec Into Container
 
 ```bash
-docker exec -it xemu-halo2-server bash
+docker exec -it xemu bash
 ```
 
 ---
@@ -279,21 +281,23 @@ docker exec -it xemu-halo2-server bash
 | Quick restart (no rebuild) | `docker compose restart xemu` |
 | View xemu logs | `docker compose logs -f xemu` |
 | View all service logs | `docker compose logs -f` |
-| Test network connectivity | `docker exec xemu-halo2-server ping -c 3 172.20.0.51` |
-| Check xemu capabilities | `docker exec xemu-halo2-server getcap /opt/xemu/usr/bin/xemu` |
-| Verify TX checksum disabled | `docker exec xemu-halo2-server ethtool -k eth0 \| grep tx-checksum` |
-| Check LD_PRELOAD shims | `docker exec xemu-halo2-server cat /etc/ld.so.preload` |
-| SSH into container | `docker exec -it xemu-halo2-server bash` |
+| Test network connectivity | `docker exec xemu ping -c 3 172.20.0.51` |
+| Check xemu capabilities | `docker exec xemu getcap /opt/xemu/usr/bin/xemu` |
+| Verify TX checksum disabled | `docker exec xemu ethtool -k eth0 \| grep tx-checksum` |
+| Check LD_PRELOAD shims | `docker exec xemu cat /etc/ld.so.preload` |
+| SSH into container | `docker exec -it xemu bash` |
 | Stop all services | `docker compose down` |
-| Test FTP from server | `docker exec -it xemu-halo2-server lftp 172.20.0.50` |
-| Capture Xbox traffic | `docker exec xemu-halo2-server tcpdump -i eth0 host 172.20.0.50` |
-| MTR to XLink Kai | `docker exec -it xemu-nettools mtr -rwbz -c 100 contabo.teamxlink.co.uk` |
-| MTR to Cloudflare | `docker exec -it xemu-nettools mtr -rwbz -c 50 1.1.1.1` |
-| iperf3 UDP jitter test | `docker exec -it xemu-nettools iperf3 -c iperf.he.net -u -b 1M` |
-| iperf3 TCP throughput | `docker exec -it xemu-nettools iperf3 -c iperf.he.net` |
+| Test FTP from server | `docker exec -it xemu lftp 172.20.0.50` |
+| Capture Xbox traffic | `docker exec xemu tcpdump -i eth0 host 172.20.0.50` |
+| MTR to XLink Kai | `docker exec -it nettools mtr -rwbz -c 100 contabo.teamxlink.co.uk` |
+| MTR to Cloudflare | `docker exec -it nettools mtr -rwbz -c 50 1.1.1.1` |
+| iperf3 UDP jitter test | `docker exec -it nettools iperf3 -c iperf.he.net -u -b 1M` |
+| iperf3 TCP throughput | `docker exec -it nettools iperf3 -c iperf.he.net` |
 | Open Grafana dashboard | `http://172.20.0.41:3000` (via Tailscale, admin/admin) |
 | Check Prometheus targets | `curl -s http://172.20.0.40:9090/api/v1/targets` |
 | View network exporter metrics | `curl -s http://172.20.0.42:9427/metrics \| grep ping_rtt` |
+| View StatsBorg game history | `curl -s http://172.20.0.45:8080/api/games` |
+| StatsBorg logs (watch mode) | `docker compose logs -f statsborg` |
 
 ---
 
@@ -764,7 +768,7 @@ docker compose up -d
 
 **Inside container:**
 ```bash
-docker exec -it xemu-halo2-server bash
+docker exec -it xemu bash
 cd /config/emulator  # Note: paths inside container are always at /config, regardless of host mount
 gcc -shared -fPIC -o pcap_immediate.so pcap_immediate.c -ldl
 exit
@@ -869,19 +873,19 @@ docker compose up -d
 docker compose logs -f xemu
 
 # 3. Test network connectivity
-docker exec xemu-halo2-server ping -c 3 172.20.0.51  # Should work
-docker exec xemu-halo2-server nc -zv 172.20.0.51 731  # Should connect (if XBDM running)
+docker exec xemu ping -c 3 172.20.0.51  # Should work
+docker exec xemu nc -zv 172.20.0.51 731  # Should connect (if XBDM running)
 
 # 4. Check capabilities
-docker exec xemu-halo2-server getcap /opt/xemu/usr/bin/xemu
+docker exec xemu getcap /opt/xemu/usr/bin/xemu
 # Expected: /opt/xemu/usr/bin/xemu = cap_net_admin,cap_net_raw+eip
 
 # 5. Check TX checksum offloading
-docker exec xemu-halo2-server ethtool -k eth0 | grep tx-checksum
+docker exec xemu ethtool -k eth0 | grep tx-checksum
 # Expected: tx-checksum-ip-generic: off
 
 # 6. Check LD_PRELOAD
-docker exec xemu-halo2-server cat /etc/ld.so.preload
+docker exec xemu cat /etc/ld.so.preload
 # Expected: Three lines with selkies_joystick_interposer.so, libudev-fake, pcap_immediate.so
 
 # 7. Access xemu web UI
@@ -923,8 +927,8 @@ When replacing or modifying upstream files, use clear comment markers:
 - Remove `.disabled` to enable: `passleader_v3.sh`
 
 **Docker Services:**
-- Use descriptive container names: `xemu-halo2-server`, `xemu-tailscale2`, `xemu-dhcp`
-- Prefix related services: `xemu-*` for project components
+- Use descriptive container names: `xemu`, `tailscale`, `dnsmasq`
+- Names match the tool/service directly — no prefix
 
 ### Code Style
 
@@ -985,15 +989,16 @@ ldconfig
 │  ┌────────────────────────────────────────────────────────────────────┐ │
 │  │                                                                      │ │
 │  │  .1  Docker Gateway (NATs to internet via host iptables)            │ │
-│  │  .2  xemu-dhcp (dnsmasq: DHCP 172.20.0.100-200, DNS 1.1.1.1)        │ │
-│  │  .10 xemu-tailscale2 (subnet router: advertises 172.20.0.0/24)      │ │
-│  │  .25 xlinkkai (XLink Kai web UI: 34522)                             │ │
+│  │  .2  dnsmasq (dnsmasq: DHCP 172.20.0.100-200, DNS 1.1.1.1)        │ │
+│  │  .10 tailscale (subnet router: advertises 172.20.0.0/24)      │ │
+│  │  .25 xlink (XLink Kai web UI: 34522)                      │ │
 │  │  .30 l2tunnel (LAN tunnel hub: 1337)                                │ │
-│  │  .35 xemu-nettools (iperf3 server: 5201, mtr, traceroute)          │ │
-│  │  .40 xemu-prometheus (metrics DB: 9090)                             │ │
-│  │  .41 xemu-grafana (dashboards: 3000)                               │ │
-│  │  .42 xemu-network-exporter (ICMP/MTR/TCP probes: 9427)             │ │
-│  │  .49 xemu-halo2-server (Selkies web UI: 3000/3001, QMP: 4444)       │ │
+│  │  .35 nettools (iperf3 server: 5201, mtr, traceroute)          │ │
+│  │  .40 prometheus (metrics DB: 9090)                             │ │
+│  │  .41 grafana (dashboards: 3000)                               │ │
+│  │  .42 network-exporter (ICMP/MTR/TCP probes: 9427)             │ │
+│  │  .45 StatsBorg (XBDM stats watcher, web UI: 8080)             │ │
+│  │  .49 xemu (Selkies web UI: 3000/3001, QMP: 4444)       │ │
 │  │      │                                                               │ │
 │  │      └─→ pcap on eth0 injects packets for:                          │ │
 │  │          .50 Emulated Xbox - title interface (FTP 21, gaming)       │ │
@@ -1023,13 +1028,14 @@ ldconfig
 |----|---------|---------|
 | 172.20.0.1 | Docker Gateway | NAT to internet |
 | 172.20.0.2 | dnsmasq | DHCP + DNS |
-| 172.20.0.10 | xemu-tailscale2 | Subnet router (exposes network to Tailscale clients) |
-| 172.20.0.25 | xlinkkai | XLink Kai for system link gaming |
+| 172.20.0.10 | tailscale | Subnet router (exposes network to Tailscale clients) |
+| 172.20.0.25 | xlink | XLink Kai for system link gaming |
 | 172.20.0.30 | l2tunnel | Layer 2 tunnel hub for LAN gaming (port 1337) |
-| 172.20.0.35 | xemu-nettools | iperf3 server + mtr/traceroute diagnostics (port 5201) |
-| 172.20.0.40 | xemu-prometheus | Time-series metrics database (port 9090) |
-| 172.20.0.41 | xemu-grafana | Network telemetry dashboards (port 3000, host 3002) |
-| 172.20.0.42 | xemu-network-exporter | ICMP/MTR/TCP/HTTP probe exporter (port 9427) |
+| 172.20.0.35 | nettools | iperf3 server + mtr/traceroute diagnostics (port 5201) |
+| 172.20.0.40 | prometheus | Time-series metrics database (port 9090) |
+| 172.20.0.41 | grafana | Network telemetry dashboards (port 3000, host 3002) |
+| 172.20.0.42 | network-exporter | ICMP/MTR/TCP/HTTP probe exporter (port 9427) |
+| 172.20.0.45 | StatsBorg | StatsBorg XBDM watcher + web UI (port 8080) |
 | 172.20.0.49 | xemu container | Selkies web UI + QMP (ports 3000/3001/4444) |
 | 172.20.0.50 | Xbox (title) | Gaming, FTP (pcap-injected) |
 | 172.20.0.51 | Xbox (debug) | XBDM, ping (pcap-injected) |
@@ -1261,25 +1267,25 @@ docker compose logs xemu
 
 **Test basic networking:**
 ```bash
-docker exec xemu-halo2-server ping -c 3 172.20.0.1   # Docker gateway
-docker exec xemu-halo2-server ping -c 3 172.20.0.51  # Xbox debug interface
+docker exec xemu ping -c 3 172.20.0.1   # Docker gateway
+docker exec xemu ping -c 3 172.20.0.51  # Xbox debug interface
 ```
 
 **Check capabilities:**
 ```bash
-docker exec xemu-halo2-server getcap /opt/xemu/usr/bin/xemu
+docker exec xemu getcap /opt/xemu/usr/bin/xemu
 # Expected: cap_net_admin,cap_net_raw+eip
 ```
 
 **Check LD_PRELOAD:**
 ```bash
-docker exec xemu-halo2-server cat /etc/ld.so.preload
+docker exec xemu cat /etc/ld.so.preload
 # Expected: Three lines (selkies, udev-fake, pcap_immediate)
 ```
 
 **Check promiscuous mode:**
 ```bash
-docker exec xemu-halo2-server ip link show eth0
+docker exec xemu ip link show eth0
 # Expected: PROMISC flag
 ```
 
@@ -1289,13 +1295,13 @@ docker exec xemu-halo2-server ip link show eth0
 
 **Check TX checksum offloading:**
 ```bash
-docker exec xemu-halo2-server ethtool -k eth0 | grep tx-checksum
+docker exec xemu ethtool -k eth0 | grep tx-checksum
 # Expected: tx-checksum-ip-generic: off
 ```
 
 **If it shows `on`, fix manually:**
 ```bash
-docker exec xemu-halo2-server ethtool -K eth0 tx off
+docker exec xemu ethtool -K eth0 tx off
 ```
 
 **Permanent fix:** Verify `10-xemu-setcap` init script runs successfully:
@@ -1311,7 +1317,7 @@ docker compose logs xemu | grep xemu-setcap
 
 **Fix:**
 ```bash
-docker exec xemu-halo2-server bash -c \
+docker exec xemu bash -c \
   'echo "/opt/xemu/usr/lib" > /etc/ld.so.conf.d/xemu.conf && ldconfig'
 docker compose restart xemu
 ```
@@ -1327,7 +1333,7 @@ Connect directly to `172.20.0.50:21` from any FTP client on a Tailscale-connecte
 1. Is Xbox booted to dashboard?
 2. Is FTP server enabled in XBMC settings?
 3. Is Tailscale subnet route approved? (check admin.tailscale.com)
-4. Is TX checksum offloading disabled? (`docker exec xemu-tailscale2 ethtool -k eth0`)
+4. Is TX checksum offloading disabled? (`docker exec tailscale ethtool -k eth0`)
 
 **From server terminal:** `lftp -u xbox,xbox 172.20.0.50` (basic commands: `ls`, `cd E:/`, `get file`, `put file`, `quit`)
 
@@ -1341,25 +1347,25 @@ nc -zv 172.20.0.51 731
 
 **Check Tailscale status:**
 ```bash
-docker logs xemu-tailscale2
-docker exec xemu-tailscale2 tailscale status
+docker logs tailscale
+docker exec tailscale tailscale status
 ```
 
 **Verify subnet route approved:**
 - Check Tailscale admin console (admin.tailscale.com)
-- Ensure 172.20.0.0/24 route is approved for xemu-halocaster
+- Ensure 172.20.0.0/24 route is approved for tailscale
 
 **Test from server (bypasses Tailscale):**
 ```bash
 # From another container (not xemu - hairpin issue)
-docker exec xlinkkai nc -zv 172.20.0.51 731
+docker exec xlink nc -zv 172.20.0.51 731
 ```
 
 ### XLink Kai Not Detecting Xbox
 
 **Check XLink Kai logs:**
 ```bash
-docker compose logs xlinkkai
+docker compose logs xlink
 ```
 
 **Verify containers on same bridge:**
