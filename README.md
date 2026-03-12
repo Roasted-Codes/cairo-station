@@ -1,4 +1,4 @@
-# docker-bridged-xemu
+# cairo-station
 
 **Web-based Xbox debug kit with true bridged networking and remote access.**
 
@@ -34,8 +34,8 @@ Minimal overlay on [linuxserver/docker-xemu](https://github.com/linuxserver/dock
 ### 1. Clone and Configure
 
 ```bash
-git clone https://github.com/Roasted-Codes/docker-bridged-xemu.git
-cd docker-bridged-xemu
+git clone https://github.com/Roasted-Codes/cairo-station.git
+cd cairo-station
 ```
 
 Add your Xbox files to `services/xemu/data/emulator/`:

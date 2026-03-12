@@ -1,10 +1,10 @@
-# docker-bridged-xemu
+# cairo-station
 
 **This file provides guidance to Claude Code (claude.ai/code) when working with this repository.**
 
 **Maintenance:** Keep this file up to date as the project evolves. When adding new features, changing addresses, modifying CLI flags, or altering architecture, update the relevant sections here.
 
-**Repository:** [`Roasted-Codes/docker-bridged-xemu`](https://github.com/Roasted-Codes/docker-bridged-xemu)
+**Repository:** [`Roasted-Codes/cairo-station`](https://github.com/Roasted-Codes/cairo-station)
 **Maintainer:** Roasted-Codes
 **License:** GPL-3.0
 
@@ -12,7 +12,7 @@
 
 ## Project Overview
 
-`docker-bridged-xemu` is a **Docker overlay** on top of [`linuxserver/docker-xemu`](https://github.com/linuxserver/docker-xemu) that enables **pcap-based bridged networking** for the emulated Xbox. This allows the emulated Xbox to appear as a real device on a Docker bridge network with its own static IP addresses.
+`cairo-station` is a **Docker overlay** on top of [`linuxserver/docker-xemu`](https://github.com/linuxserver/docker-xemu) that enables **pcap-based bridged networking** for the emulated Xbox. This allows the emulated Xbox to appear as a real device on a Docker bridge network with its own static IP addresses.
 
 ### What This Provides
 
@@ -184,7 +184,7 @@ Excluded via [`.gitignore`](.gitignore):
 ### Build
 
 ```bash
-cd /home/docker/bridged-xemu
+cd /home/docker/cairo-station
 docker compose build
 ```
 
@@ -200,8 +200,13 @@ docker compose up -d
 - `xemu-halo2-server` (172.20.0.49) — xemu emulator with Selkies web UI
 - `xemu-tailscale2` (172.20.0.10) — Tailscale subnet router (advertises 172.20.0.0/24)
 - `xlinkkai` (172.20.0.25) — XLink Kai for online multiplayer
-- `l2tunnel` (172.20.0.30) — Layer 2 tunnel hub for LAN gaming over Tailscale
 - `xemu-dhcp` (172.20.0.2) — dnsmasq DHCP/DNS server
+- `xemu-nettools` (172.20.0.35) — diagnostic tools (iperf3, mtr, tcpdump)
+- `xemu-prometheus` (172.20.0.40) — Prometheus metrics DB
+- `xemu-grafana` (172.20.0.41) — Grafana dashboards (admin/admin)
+- `xemu-network-exporter` (172.20.0.42) — ICMP/MTR/TCP network probe exporter
+- `xemu-xlink-monitor` — XLink Kai traffic monitor (shares xlinkkai network namespace)
+- `l2tunnel` — Layer 2 tunnel hub (**disabled by default**, uncomment in docker-compose.yml)
 
 **Emulated Xbox IPs:**
 - `172.20.0.50` — Title interface (gaming, FTP port 21)
@@ -252,7 +257,7 @@ docker compose up -d
 
 ```bash
 docker compose logs -f xemu          # xemu logs
-docker logs xemu-tailscale           # Tailscale auth status
+docker logs xemu-tailscale2          # Tailscale auth status
 docker logs xemu-halo2-server        # Full container logs
 ```
 
@@ -653,7 +658,7 @@ ethtool -k eth0 | grep tx-checksum
 
 ### Add New Package to Container
 
-**Edit:** [`Dockerfile`](Dockerfile)
+**Edit:** [`services/xemu/Dockerfile`](services/xemu/Dockerfile)
 
 ```dockerfile
 RUN \
@@ -729,7 +734,7 @@ print(json.loads(response))
 
 ### Change Xbox IP Addresses
 
-**Edit:** [`docker-compose.yml`](docker-compose.yml) and [`config/dnsmasq/dnsmasq.conf`](config/dnsmasq/dnsmasq.conf)
+**Edit:** [`docker-compose.yml`](docker-compose.yml) and [`services/dnsmasq/dnsmasq.conf`](services/dnsmasq/dnsmasq.conf)
 
 1. Update DHCP pool in `dnsmasq.conf` to avoid new static IPs
 2. Rebuild containers:
@@ -774,7 +779,7 @@ docker compose restart xemu
 
 **Rename script:**
 ```bash
-cd /home/docker/bridged-xemu/services/xemu/data/emulator
+cd /home/docker/cairo-station/services/xemu/data/emulator
 mv passleader_v3.sh.disabled passleader_v3.sh
 ```
 
@@ -835,10 +840,10 @@ ssh -L 731:localhost:731 user@server-ip
 
 **🚨 CRITICAL: Always ask for user confirmation before pushing to GitHub!**
 
-**Working directory:** `/home/docker/bridged-xemu/`
+**Working directory:** `/home/docker/cairo-station/`
 
 ```bash
-cd /home/docker/bridged-xemu
+cd /home/docker/cairo-station
 git add .
 git commit -m "Your commit message
 
@@ -847,7 +852,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
 git push origin main  # Only run after explicit user confirmation
 ```
 
-**Note:** Verify git remote with `git remote -v` before pushing. The origin should point to `Roasted-Codes/docker-bridged-xemu`.
+**Note:** Verify git remote with `git remote -v` before pushing. The origin should point to `Roasted-Codes/cairo-station`.
 
 **AI Agent Rule:** Never execute `git push` without first asking the user "Ready to push to GitHub?" and receiving explicit confirmation. This applies to ALL branches, not just main.
 
